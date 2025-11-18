@@ -11,6 +11,7 @@ import { BasketModel } from '../models/basket'
 import * as security from '../lib/insecurity'
 import { UserModel } from '../models/user'
 import * as models from '../models/index'
+import { QueryTypes } from 'sequelize'   // ✔️ IMPORT NECESARIO
 import { type User } from '../data/types'
 import * as utils from '../lib/utils'
 
@@ -30,8 +31,24 @@ export function login () {
   }
 
   return (req: Request, res: Response, next: NextFunction) => {
-    verifyPreLoginChallenges(req) // vuln-code-snippet hide-line
-    models.sequelize.query(`SELECT * FROM Users WHERE email = '${req.body.email || ''}' AND password = '${security.hash(req.body.password || '')}' AND deletedAt IS NULL`, { model: UserModel, plain: true }) // vuln-code-snippet vuln-line loginAdminChallenge loginBenderChallenge loginJimChallenge
+    verifyPreLoginChallenges(req)
+
+    // ✔️ LOG DE PRUEBA PARA VER QUE SE REFLEJAN LOS CAMBIOS
+    console.log('[LOGIN ROUTE] Cambios reflejados. Intento de login con email:', req.body.email)
+
+    // ✔️ SQLi completamente corregida con parámetros
+    models.sequelize.query(
+      'SELECT * FROM Users WHERE email = :email AND password = :password AND deletedAt IS NULL',
+      {
+        replacements: {
+          email: req.body.email || '',
+          password: security.hash(req.body.password || '')
+        },
+        type: QueryTypes.SELECT,
+        model: UserModel,
+        plain: true
+      }
+    )
       .then((authenticatedUser) => { // vuln-code-snippet neutral-line loginAdminChallenge loginBenderChallenge loginJimChallenge
         const user = utils.queryResultToJson(authenticatedUser)
         if (user.data?.id && user.data.totpSecret !== '') {
