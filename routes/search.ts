@@ -15,15 +15,33 @@ class ErrorWithParent extends Error {
   parent: Error | undefined
 }
 
-// vuln-code-snippet start unionSqlInjectionChallenge dbSchemaChallenge
+// Código SEGURO: Usando Parámetros de Reemplazo para sanitizar el input
 export function searchProducts () {
   return (req: Request, res: Response, next: NextFunction) => {
     let criteria: any = req.query.q === 'undefined' ? '' : req.query.q ?? ''
     criteria = (criteria.length <= 200) ? criteria : criteria.substring(0, 200)
-    models.sequelize.query(`SELECT * FROM Products WHERE ((name LIKE '%${criteria}%' OR description LIKE '%${criteria}%') AND deletedAt IS NULL) ORDER BY name`) // vuln-code-snippet vuln-line unionSqlInjectionChallenge dbSchemaChallenge
+
+    // 1. Definimos la consulta SQL cruda (Raw Query)
+    //    Usamos un marcador de posición llamado :criteria en lugar de concatenar el string.
+    const rawQuery = `SELECT * FROM Products 
+                      WHERE (
+                        (name LIKE :criteria OR description LIKE :criteria) 
+                        AND deletedAt IS NULL
+                      ) 
+                      ORDER BY name`
+                      
+    // 2. Ejecutamos la consulta pasando el input del usuario en el objeto 'replacements'.
+    //    Sequelize se encarga de escapar y sanitizar el input antes de ejecutar la consulta.
+    models.sequelize.query(rawQuery, {
+      replacements: {
+        criteria: `%${criteria}%` // El input se pasa como dato, no como código SQL.
+      }
+    })
       .then(([products]: any) => {
         const dataString = JSON.stringify(products)
-        if (challengeUtils.notSolved(challenges.unionSqlInjectionChallenge)) { // vuln-code-snippet hide-start
+        
+        // --- Lógica de OWASP Juice Shop para resolver los desafíos (se mantiene sin cambios) ---
+        if (challengeUtils.notSolved(challenges.unionSqlInjectionChallenge)) {
           let solved = true
           UserModel.findAll().then(data => {
             const users = utils.queryResultToJson(data)
@@ -60,7 +78,9 @@ export function searchProducts () {
               }
             }
           })
-        } // vuln-code-snippet hide-end
+        } 
+        // ---------------------------------------------------------------------------------------
+
         for (let i = 0; i < products.length; i++) {
           products[i].name = req.__(products[i].name)
           products[i].description = req.__(products[i].description)
@@ -71,4 +91,3 @@ export function searchProducts () {
       })
   }
 }
-// vuln-code-snippet end unionSqlInjectionChallenge dbSchemaChallenge
