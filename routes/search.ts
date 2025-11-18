@@ -15,14 +15,13 @@ class ErrorWithParent extends Error {
   parent: Error | undefined
 }
 
-// Código SEGURO: Usando Parámetros de Reemplazo para sanitizar el input
+// CÓDIGO SEGURO: Usando Parámetros de Reemplazo (Replacements) para sanitizar el input
 export function searchProducts () {
   return (req: Request, res: Response, next: NextFunction) => {
     let criteria: any = req.query.q === 'undefined' ? '' : req.query.q ?? ''
     criteria = (criteria.length <= 200) ? criteria : criteria.substring(0, 200)
 
-    // 1. Definimos la consulta SQL cruda (Raw Query)
-    //    Usamos un marcador de posición llamado :criteria en lugar de concatenar el string.
+    // 1. Definición de la consulta SQL: Se utilizan marcadores de posición (`:criteria`).
     const rawQuery = `SELECT * FROM Products 
                       WHERE (
                         (name LIKE :criteria OR description LIKE :criteria) 
@@ -30,18 +29,18 @@ export function searchProducts () {
                       ) 
                       ORDER BY name`
                       
-    // 2. Ejecutamos la consulta pasando el input del usuario en el objeto 'replacements'.
-    //    Sequelize se encarga de escapar y sanitizar el input antes de ejecutar la consulta.
+    // 2. Ejecución segura: El valor de 'criteria' se pasa por separado en 'replacements'.
+    //    Esto evita la inyección SQL.
     models.sequelize.query(rawQuery, {
       replacements: {
-        criteria: `%${criteria}%` // El input se pasa como dato, no como código SQL.
+        criteria: `%${criteria}%` // El input se pasa como dato de forma segura.
       }
-    })
+    }) // Reemplaza la línea vulnerable original
       .then(([products]: any) => {
         const dataString = JSON.stringify(products)
         
-        // --- Lógica de OWASP Juice Shop para resolver los desafíos (se mantiene sin cambios) ---
-        if (challengeUtils.notSolved(challenges.unionSqlInjectionChallenge)) {
+        // --- Lógica del Scoreboard de Juice Shop (No es parte de la corrección de seguridad) ---
+        if (challengeUtils.notSolved(challenges.unionSqlInjectionChallenge)) { 
           let solved = true
           UserModel.findAll().then(data => {
             const users = utils.queryResultToJson(data)
